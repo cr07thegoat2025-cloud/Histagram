@@ -12,7 +12,12 @@ A photo-sharing app for Android, built with Flutter and Supabase. No ads.
 - Follow and unfollow; edit your name, username, bio and profile photo
 - Search for people by username
 
-Not included yet: Stories, Reels, direct messages, notifications.
+- Direct messages (the paper-plane icon on the feed, or the Message button on a profile):
+  real-time text chat, "Sent 5 min ago" and "Seen 2 min ago" on every message,
+  photos and videos (up to 50 MB), and voice notes (tap the microphone, tap send;
+  up to 5 minutes)
+
+Not included yet: Stories, Reels, notifications.
 
 ## How it's built
 
@@ -28,6 +33,9 @@ Not included yet: Stories, Reels, direct messages, notifications.
 - The Supabase URL and publishable key in `lib/main.dart` are public by design.
   Never put a `service_role` key in the app.
 - Accounts are shared with the TextChat app (same Supabase users), each app keeps its own profile.
+- Messages use the same chat tables as TextChat (`tc_*`, defined in the TextChat repo), so
+  someone on Histagram and someone on TextChat can message each other and see the same chats.
+- The microphone permission is only asked for when you record your first voice note.
 - Photos are private: only signed-in users can view them, through temporary links.
 - In Supabase, Authentication → Sign In / Providers → Email, you can turn "Confirm email"
   off while testing so sign-up logs in immediately.

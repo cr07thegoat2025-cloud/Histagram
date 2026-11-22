@@ -37,9 +37,16 @@ jobs:
           cp -r "$RUNNER_TEMP/keep/lib" lib
           cp "$RUNNER_TEMP/keep/pubspec.yaml" pubspec.yaml
 
-      - name: Android manifest tweaks (internet permission, app name)
+      - name: Android tweaks (internet and microphone permissions, app name, minSdk 23)
         run: |
-          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+          # The voice recorder plugin needs Android 6 (API 23) or newer.
+          for f in android/app/build.gradle android/app/build.gradle.kts; do
+            if [ -f "$f" ]; then
+              sed -i -E 's/minSdk(Version)?( = |  *)flutter\.minSdkVersion/minSdk\1\2 23/' "$f"
+            fi
+          done
+          grep -n "minSdk" android/app/build.gradle* || true
           sed -i 's#android:label="histagram"#android:label="Histagram"#' android/app/src/main/AndroidManifest.xml
           grep -nE "INTERNET|android:label" android/app/src/main/AndroidManifest.xml
 

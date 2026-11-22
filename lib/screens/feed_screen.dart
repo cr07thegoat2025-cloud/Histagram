@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../chat/inbox_screen.dart';
 import '../main.dart';
 import '../util.dart';
 import '../widgets/post_card.dart';
@@ -78,6 +79,14 @@ class _FeedScreenState extends State<FeedScreen> {
             tooltip: _explore ? 'Show people I follow' : 'Explore everyone',
             icon: Icon(_explore ? Icons.people_outline : Icons.explore_outlined),
             onPressed: _toggleScope,
+          ),
+          IconButton(
+            tooltip: 'Messages',
+            icon: const Icon(Icons.send_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const InboxScreen()),
+            ),
           ),
         ],
       ),

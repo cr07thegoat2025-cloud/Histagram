@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../chat/chat_helpers.dart';
 import '../main.dart';
 import '../util.dart';
 import 'edit_profile_screen.dart';
@@ -149,19 +150,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(display, style: const TextStyle(fontWeight: FontWeight.w700)),
           if (bio.isNotEmpty) Text(bio),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: _mine
-                ? OutlinedButton(
-                    onPressed: _edit, child: const Text('Edit profile'))
-                : following
-                    ? OutlinedButton(
-                        onPressed: _followBusy ? null : _toggleFollow,
-                        child: const Text('Following'))
-                    : FilledButton(
-                        onPressed: _followBusy ? null : _toggleFollow,
-                        child: const Text('Follow')),
-          ),
+          if (_mine)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                  onPressed: _edit, child: const Text('Edit profile')),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: following
+                      ? OutlinedButton(
+                          onPressed: _followBusy ? null : _toggleFollow,
+                          child: const Text('Following'))
+                      : FilledButton(
+                          onPressed: _followBusy ? null : _toggleFollow,
+                          child: const Text('Follow')),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => openChatWith(
+                      context,
+                      userId: widget.userId,
+                      name: username,
+                      avatarPath: p['avatar_path'] as String?,
+                    ),
+                    child: const Text('Message'),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
