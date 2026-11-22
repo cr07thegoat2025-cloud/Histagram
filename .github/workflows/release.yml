@@ -1,0 +1,78 @@
+name: Build and release APK
+
+on:
+  push:
+    branches: [main]   # every push to main builds and publishes a release
+    tags:
+      - 'v*'
+  workflow_dispatch:   # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write      # needed to create the GitHub Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # The repo only holds lib/ + pubspec.yaml; generate the Android project
+      # around them, keeping our own files untouched.
+      - name: Generate Android project
+        run: |
+          mkdir -p "$RUNNER_TEMP/keep"
+          cp -r lib pubspec.yaml "$RUNNER_TEMP/keep/"
+          flutter create --platforms=android --org com.example --project-name histagram .
+          rm -rf lib pubspec.yaml test
+          cp -r "$RUNNER_TEMP/keep/lib" lib
+          cp "$RUNNER_TEMP/keep/pubspec.yaml" pubspec.yaml
+
+      - name: Android manifest tweaks (internet permission, app name)
+        run: |
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+          sed -i 's#android:label="histagram"#android:label="Histagram"#' android/app/src/main/AndroidManifest.xml
+          grep -nE "INTERNET|android:label" android/app/src/main/AndroidManifest.xml
+
+      # Android's release lint step crashes inside the image_picker plugin
+      # (a bug in the lint tool, not in our code), so skip those checks.
+      - name: Skip Android release lint
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/skip-lint.gradle <<'EOF'
+          allprojects {
+            tasks.configureEach { task ->
+              if (task.name.startsWith('lintVital')) { task.enabled = false }
+            }
+          }
+          EOF
+
+      - run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: histagram-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Pushing a v* tag uses that tag; any other run makes v1.0.<run number>.
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+          make_latest: true

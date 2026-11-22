@@ -1,0 +1,227 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../main.dart';
+import '../util.dart';
+
+class AuthScreen extends StatefulWidget {
+  const AuthScreen({super.key});
+
+  @override
+  State<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<AuthScreen> {
+  final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _username = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _signUp = false;
+  bool _busy = false;
+  bool _hide = true;
+  String? _error;
+  String? _info;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _username.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _info = null;
+    });
+    final email = _email.text.trim();
+    try {
+      if (_signUp) {
+        final res = await db.auth.signUp(
+          email: email,
+          password: _password.text,
+          data: {
+            'name': _name.text.trim(),
+            'username': _username.text.trim().toLowerCase(),
+          },
+        );
+        if (res.session == null) {
+          setState(() {
+            _signUp = false;
+            _info = 'Account created. Check your email to confirm it, '
+                'then log in.';
+          });
+        }
+      } else {
+        await db.auth
+            .signInWithPassword(email: email, password: _password.text);
+      }
+    } on AuthException catch (e) {
+      setState(() => _error = _friendly(e));
+    } catch (_) {
+      setState(() => _error = 'Something went wrong. Check your internet.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _reset() async {
+    final email = _email.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = 'Enter your email first.');
+      return;
+    }
+    try {
+      await db.auth.resetPasswordForEmail(email);
+      setState(() {
+        _error = null;
+        _info = 'Password reset email sent.';
+      });
+    } on AuthException catch (e) {
+      setState(() => _error = _friendly(e));
+    }
+  }
+
+  String _friendly(AuthException e) {
+    final m = e.message.toLowerCase();
+    if (m.contains('invalid login')) return 'Wrong email or password.';
+    if (m.contains('already registered')) {
+      return 'That email is already registered.';
+    }
+    if (m.contains('email not confirmed')) {
+      return 'Please confirm your email first (check your inbox).';
+    }
+    if (m.contains('password')) return 'Password must be at least 6 characters.';
+    if (m.contains('rate limit')) return 'Too many attempts. Try again later.';
+    return e.message;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _form,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Center(child: HistagramLogo(size: 44)),
+                    const SizedBox(height: 8),
+                    Text(
+                      _signUp
+                          ? 'Sign up to share photos with friends.'
+                          : 'Welcome back.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 28),
+                    if (_signUp) ...[
+                      TextFormField(
+                        controller: _name,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                            labelText: 'Full name',
+                            border: OutlineInputBorder()),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Enter your name'
+                            : null,
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _username,
+                        autocorrect: false,
+                        decoration: const InputDecoration(
+                            labelText: 'Username',
+                            helperText: 'Letters, numbers, _ and . (3-24)',
+                            border: OutlineInputBorder()),
+                        validator: (v) =>
+                            RegExp(r'^[a-zA-Z0-9_.]{3,24}$')
+                                    .hasMatch((v ?? '').trim())
+                                ? null
+                                : 'Use 3-24 letters, numbers, _ or .',
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: const InputDecoration(
+                          labelText: 'Email', border: OutlineInputBorder()),
+                      validator: (v) => (v == null || !v.contains('@'))
+                          ? 'Enter a valid email'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _hide,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                              _hide ? Icons.visibility : Icons.visibility_off),
+                          onPressed: () => setState(() => _hide = !_hide),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.length < 6)
+                          ? 'At least 6 characters'
+                          : null,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(_error!, style: TextStyle(color: scheme.error)),
+                    ],
+                    if (_info != null) ...[
+                      const SizedBox(height: 12),
+                      Text(_info!, style: TextStyle(color: scheme.primary)),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: _busy ? null : _submit,
+                      child: _busy
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Text(_signUp ? 'Sign up' : 'Log in'),
+                    ),
+                    if (!_signUp)
+                      TextButton(
+                          onPressed: _reset,
+                          child: const Text('Forgot password?')),
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                                _signUp = !_signUp;
+                                _error = null;
+                                _info = null;
+                              }),
+                      child: Text(_signUp
+                          ? 'Have an account? Log in'
+                          : "Don't have an account? Sign up"),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
