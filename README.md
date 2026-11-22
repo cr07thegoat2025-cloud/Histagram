@@ -40,3 +40,14 @@ Not included yet: Stories, Reels, notifications.
 - In Supabase, Authentication → Sign In / Providers → Email, you can turn "Confirm email"
   off while testing so sign-up logs in immediately.
 - The APK is signed with Flutter's debug key: fine for sharing, not for the Play Store.
+
+## Reels
+Swipe up through short videos (up to 90 s / 50 MB). Like, double-tap to like,
+comment, delete your own. Create one from the Create button, then choose Reel.
+No ads.
+
+## Sign-up emails
+Supabase's built-in mailer is rate-limited and its links go to the project's
+Site URL. In the Supabase dashboard set Authentication > URL Configuration >
+Site URL to a real address, and add custom SMTP (or turn off "Confirm email")
+for reliable delivery.

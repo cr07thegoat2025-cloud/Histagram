@@ -14,16 +14,16 @@ class _CachedUrl {
 
 final Map<String, _CachedUrl> _urlCache = {};
 
-Future<String> signedUrl(String path) {
-  final hit = _urlCache[path];
+Future<String> signedUrl(String path, {String bucket = mediaBucket}) {
+  final key = '$bucket/$path';
+  final hit = _urlCache[key];
   if (hit != null &&
       DateTime.now().difference(hit.at) < const Duration(minutes: 45)) {
     return hit.future;
   }
-  final fresh =
-      _CachedUrl(db.storage.from(mediaBucket).createSignedUrl(path, 3600));
-  _urlCache[path] = fresh;
-  fresh.future.then((_) {}, onError: (_) => _urlCache.remove(path));
+  final fresh = _CachedUrl(db.storage.from(bucket).createSignedUrl(path, 3600));
+  _urlCache[key] = fresh;
+  fresh.future.then((_) {}, onError: (_) => _urlCache.remove(key));
   return fresh.future;
 }
 
@@ -154,3 +154,25 @@ String imageExt(String fileName) {
 }
 
 String imageMime(String ext) => _mimeByExt[ext] ?? 'image/jpeg';
+
+// ---- Reels (short videos) ----
+const reelsBucket = 'hg-reels';
+const maxReelBytes = 50 * 1024 * 1024; // matches the 50 MB bucket limit
+const maxReelSeconds = 90;
+
+const _videoMimeByExt = {
+  'mp4': 'video/mp4',
+  'mov': 'video/quicktime',
+  'webm': 'video/webm',
+  '3gp': 'video/3gpp',
+  'mkv': 'video/x-matroska',
+};
+
+String videoExt(String fileName) {
+  final dot = fileName.lastIndexOf('.');
+  var e = dot < 0 ? '' : fileName.substring(dot + 1).toLowerCase();
+  e = e.replaceAll(RegExp(r'[^a-z0-9]'), '');
+  return _videoMimeByExt.containsKey(e) ? e : 'mp4';
+}
+
+String videoMime(String ext) => _videoMimeByExt[ext] ?? 'video/mp4';

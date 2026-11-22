@@ -4,11 +4,18 @@ import '../main.dart';
 import '../util.dart';
 
 class CommentsScreen extends StatefulWidget {
-  final String postId;
+  final String postId; // the post's id (or the reel's id)
   final String postOwnerId;
+  final String table; // 'hg_comments' for posts, 'hg_reel_comments' for reels
+  final String idColumn; // 'post_id' or 'reel_id'
 
-  const CommentsScreen(
-      {super.key, required this.postId, required this.postOwnerId});
+  const CommentsScreen({
+    super.key,
+    required this.postId,
+    required this.postOwnerId,
+    this.table = 'hg_comments',
+    this.idColumn = 'post_id',
+  });
 
   @override
   State<CommentsScreen> createState() => _CommentsScreenState();
@@ -38,9 +45,9 @@ class _CommentsScreenState extends State<CommentsScreen> {
   Future<void> _load() async {
     try {
       final rows = await db
-          .from('hg_comments')
+          .from(widget.table)
           .select('id,user_id,body,created_at,hg_profiles(username,avatar_path)')
-          .eq('post_id', widget.postId)
+          .eq(widget.idColumn, widget.postId)
           .order('created_at', ascending: true);
       if (!mounted) return;
       setState(() {
@@ -64,8 +71,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      await db.from('hg_comments').insert({
-        'post_id': widget.postId,
+      await db.from(widget.table).insert({
+        widget.idColumn: widget.postId,
         'user_id': _me,
         'body': text,
       });
@@ -80,7 +87,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   Future<void> _delete(String id) async {
     try {
-      await db.from('hg_comments').delete().eq('id', id);
+      await db.from(widget.table).delete().eq('id', id);
       await _load();
     } catch (_) {
       if (mounted) showSnack(context, 'Could not delete the comment.');

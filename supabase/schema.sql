@@ -163,3 +163,29 @@ create policy hg_media_insert on storage.objects for insert to authenticated
   with check (bucket_id = 'hg-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
 create policy hg_media_delete on storage.objects for delete to authenticated
   using (bucket_id = 'hg-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ================= Reels =================
+create table if not exists public.hg_reels (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.hg_profiles(id) on delete cascade,
+  video_path text not null,
+  caption text not null default '',
+  duration_ms integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.hg_reel_likes (
+  reel_id uuid not null references public.hg_reels(id) on delete cascade,
+  user_id uuid not null references public.hg_profiles(id) on delete cascade,
+  primary key (reel_id, user_id)
+);
+create table if not exists public.hg_reel_comments (
+  id uuid primary key default gen_random_uuid(),
+  reel_id uuid not null references public.hg_reels(id) on delete cascade,
+  user_id uuid not null references public.hg_profiles(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+-- RLS: everyone signed in can read; you can add/remove your own; a reel's
+-- owner can also delete comments on it. Private bucket 'hg-reels' (50 MB,
+-- video only), uploads only into the folder named after your user id.
+-- Feed function used by the app: hg_reels_feed(p_limit, p_before)

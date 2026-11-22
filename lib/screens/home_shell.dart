@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../main.dart';
+import '../reels/create_reel_screen.dart';
+import '../reels/reels_screen.dart';
 import '../util.dart';
 import 'create_post_screen.dart';
 import 'feed_screen.dart';
@@ -15,7 +17,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  int _page = 0; // 0 feed, 1 search, 2 profile
+  int _page = 0; // 0 feed, 1 search, 2 reels, 3 profile
   int _version = 0; // bumped after posting so the feed and profile reload
   bool _ready = false;
   String? _error;
@@ -37,6 +39,51 @@ class _HomeShellState extends State<HomeShell> {
         setState(() => _error = 'Could not set up your profile. Check your '
             'internet and try again.');
       }
+    }
+  }
+
+  Future<void> _create() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: const Text('Post'),
+              subtitle: const Text('Share a photo'),
+              onTap: () => Navigator.pop(ctx, 'post'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.movie_creation_outlined),
+              title: const Text('Reel'),
+              subtitle: const Text('Share a short video'),
+              onTap: () => Navigator.pop(ctx, 'reel'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'post') {
+      await _newPost();
+    } else if (choice == 'reel') {
+      await _newReel();
+    }
+  }
+
+  Future<void> _newReel() async {
+    final posted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const CreateReelScreen()),
+    );
+    if (posted == true && mounted) {
+      setState(() {
+        _version++;
+        _page = 2;
+      });
+      showSnack(context, 'Reel shared');
     }
   }
 
@@ -88,16 +135,17 @@ class _HomeShellState extends State<HomeShell> {
         children: [
           FeedScreen(key: ValueKey('feed$_version')),
           const SearchScreen(),
+          ReelsScreen(key: ValueKey('reels$_version'), active: _page == 2),
           ProfileScreen(key: ValueKey('me$_version'), userId: me, isTab: true),
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _page == 2 ? 3 : _page,
+        selectedIndex: _page < 2 ? _page : _page + 1,
         onDestinationSelected: (i) {
           if (i == 2) {
-            _newPost();
+            _create();
           } else {
-            setState(() => _page = i == 3 ? 2 : i);
+            setState(() => _page = i < 2 ? i : i - 1);
           }
         },
         destinations: const [
@@ -110,7 +158,11 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
               icon: Icon(Icons.add_box_outlined),
               selectedIcon: Icon(Icons.add_box),
-              label: 'New post'),
+              label: 'Create'),
+          NavigationDestination(
+              icon: Icon(Icons.play_circle_outline),
+              selectedIcon: Icon(Icons.play_circle),
+              label: 'Reels'),
           NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),
